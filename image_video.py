@@ -18,8 +18,9 @@ def clean_plate_text(text: str) -> str:
     return text.strip()
 
 # ---------------- Load Models ----------------
-custom_model_path = r"C:\Users\AmanFarkade\OneDrive - Pepper India Resolution Private Limited\Aman\Aman\hel_det\project_one\best.pt"
-custom_model = YOLO(custom_model_path)
+# custom_model_path = r"C:\Users\AmanFarkade\OneDrive - Pepper India Resolution Private Limited\Aman\Aman\hel_det\project_one\best.pt"
+# custom_model = YOLO(custom_model_path)
+custom_model = YOLO("best.pt")
 coco_model = YOLO("yolo11n.pt")  # Pretrained YOLO
 
 num_plate_dir = "num_plates"
