@@ -1,9 +1,8 @@
 streamlit
-ultralytics
-pandas
-plotly
-numpy
-Pillow
-groq
-python-dotenv
 opencv-python-headless
+ultralytics==8.3.50
+matplotlib
+numpy
+groq
+torch
+torchvision
