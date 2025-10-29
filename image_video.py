@@ -8,6 +8,9 @@ import json
 import uuid
 import re
 from groq import Groq
+import hashlib
+import shutil
+import tempfile
 
 # ---------------- Utility ----------------
 def clean_plate_text(text: str) -> str:
@@ -177,8 +180,8 @@ if input_mode == "Image":
                         violations.append(f"🚨 Rider without helmet | Plate: {number_plate}")
                     if len(riders) > 2:
                         violations.append(f"🚨 Triple seat violation ({len(riders)} riders) | Plate: {number_plate}")
-                    if len(riders_without_helmet) > 1:
-                        violations.append(f"🚨 Multiple riders without helmets ({len(riders_without_helmet)}) | Plate: {number_plate}")
+                    # if len(riders_without_helmet) > 1:
+                    #     violations.append(f"🚨 Multiple riders without helmets ({len(riders_without_helmet)}) | Plate: {number_plate}")
             return violations
 
         # ---------------- Run Violation Detection ----------------
@@ -216,7 +219,10 @@ if input_mode == "Image":
             for v in violations_found:
                 st.error(v)
 
-            # Convert dict to JSON string
+            unique = {tuple(sorted(v.items())) for v in violations_dict["violations"]}
+            # Convert back to list of dicts
+            violations_dict["violations"] = [dict(v) for v in unique]
+
             json_data = json.dumps(violations_dict, indent=4)
 
             # Download button
@@ -240,7 +246,8 @@ elif input_mode == "Video":
         st.video(video_path)  # Show original video
 
         cap = cv2.VideoCapture(video_path)
-        out_path = "processed_video.mp4"
+        temp_video = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+        out_path = temp_video.name
 
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -255,10 +262,21 @@ elif input_mode == "Video":
         violations_log = {"video_violations": []}
 
         frame_num = 0
+        frame_skip = 5  # analyze 1 in every 5 frames
+        plate_cache = {}  # cache for OCR results
+        num_plate_dir = "num_plates"
+        os.makedirs(num_plate_dir, exist_ok=True)
+
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
+
+            # Skip frames to save processing time
+            if frame_num % frame_skip != 0:
+                out.write(frame)   # still write frame into output video
+                frame_num += 1
+                continue
 
             # Run YOLO detections on frame
             results_custom = custom_model.predict(source=frame, conf=0.5, verbose=False)
@@ -358,9 +376,9 @@ elif input_mode == "Video":
                         if len(riders) > 2:
                             violations.append({"type": f"Triple seat violation ({len(riders)} riders)",
                                                "plate": number_plate})
-                        if len(riders_without_helmet) > 1:
-                            violations.append({"type": f"Multiple riders without helmets ({len(riders_without_helmet)})",
-                                               "plate": number_plate})
+                        # if len(riders_without_helmet) > 1:
+                        #     violations.append({"type": f"Multiple riders without helmets ({len(riders_without_helmet)})",
+                        #                        "plate": number_plate})
                 return violations
 
             detected = detect_violations()
@@ -383,11 +401,38 @@ elif input_mode == "Video":
         cap.release()
         out.release()
 
-        st.success("✅ Video processing completed!")
-        st.video(out_path)
+        # st.success("✅ Video processing completed!")
+        # st.video(out_path)
+
+        def clean_plate_text(text: str) -> str:
+            if not text or "unknown" in text.lower():
+                return "Unknown"
+            # Keep only alphanumeric + spaces
+            cleaned = re.sub(r'[^A-Z0-9 ]', '', text.upper())
+            # Remove multiple spaces
+            cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+            return cleaned if cleaned else "Unknown"
 
         # ---------------- Save Violations JSON ----------------
         if violations_log["video_violations"]:
+            seen = set()
+            dedup = []
+            for v in violations_log["video_violations"]:
+                plate = clean_plate_text(v["plate"])
+                v_type = v["type"]
+
+                key = (plate, v_type)
+                if key not in seen:
+                    seen.add(key)
+                    dedup.append({
+                        "frame": v["frame"],   # keep the first frame occurrence
+                        "type": v_type,
+                        "plate": plate
+                    })
+
+            violations_log["video_violations"] = dedup
+
+            # Convert to JSON
             json_data = json.dumps(violations_log, indent=4)
 
             st.subheader("📊 Violations JSON Log")
@@ -399,7 +444,17 @@ elif input_mode == "Video":
                 file_name="video_violations.json",
                 mime="application/json"
             )
+            try:
+                shutil.rmtree(num_plate_dir)  # deletes the whole temp folder
+                os.makedirs(num_plate_dir, exist_ok=True)  # recreate empty
+                print("✅ Temp number plate images deleted")
+            except Exception as e:
+                print(f"⚠️ Error cleaning number plate images: {e}")
         else:
             st.success("✅ No violations detected in the video!")
+        st.success("✅ Video processing completed!")
+        with open(out_path, "rb") as f:
+            st.video(f.read())
+
 
     
