@@ -254,10 +254,6 @@ elif input_mode == "Video":
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         out = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
-        # Write with cv2.VideoWriter(...)
-        out = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
-        # ... write frames in loop ...
-        out.release()   # ✅ Must close before reading
 
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         progress = st.progress(0)
@@ -459,7 +455,6 @@ elif input_mode == "Video":
         st.success("✅ Video processing completed!")
         with open(out_path, "rb") as f:
             st.video(f.read())
-        os.remove(out_path)
 
 
     
