@@ -1,6 +1,6 @@
 streamlit
 opencv-python-headless
-ultralytics==8.3.50
+ultralytics
 matplotlib
 numpy
 groq
