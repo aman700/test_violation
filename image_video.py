@@ -262,7 +262,7 @@ elif input_mode == "Video":
         violations_log = {"video_violations": []}
 
         frame_num = 0
-        frame_skip = 5  # analyze 1 in every 5 frames
+        frame_skip = 10  # analyze 1 in every 5 frames
         plate_cache = {}  # cache for OCR results
         num_plate_dir = "num_plates"
         os.makedirs(num_plate_dir, exist_ok=True)
@@ -453,8 +453,8 @@ elif input_mode == "Video":
         else:
             st.success("✅ No violations detected in the video!")
         st.success("✅ Video processing completed!")
-        with open(out_path, "rb") as f:
-            st.video(f.read())
+        # with open(out_path, "rb") as f:
+        #     st.video(f.read())
 
 
     
